@@ -1,4 +1,5 @@
-const { sendTextMessage } = require('./whatsapp');
+const { sendTextMessage, downloadMedia } = require('./whatsapp');
+const { transcribeAudio } = require('./transcribe');
 
 /**
  * Handle an incoming WhatsApp message.
@@ -27,7 +28,20 @@ async function handleIncomingMessage(message, metadata) {
       break;
 
     case 'audio':
-      replyText = 'you wrote: [audio message]';
+      // Download and transcribe audio
+      try {
+        const audioId = message.audio.id;
+        const mimeType = message.audio.mime_type;
+        console.log(`Processing audio message: ${audioId}`);
+
+        const audioBuffer = await downloadMedia(audioId);
+        const transcription = await transcribeAudio(audioBuffer, mimeType);
+
+        replyText = `you said: ${transcription}`;
+      } catch (error) {
+        console.error('Error transcribing audio:', error);
+        replyText = 'Sorry, I could not transcribe your audio message.';
+      }
       break;
 
     case 'video':

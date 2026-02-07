@@ -45,6 +45,55 @@ async function sendTextMessage(to, text, phoneNumberId) {
   return result;
 }
 
+/**
+ * Get the download URL for a media file
+ * @param {string} mediaId - The media ID from the incoming message
+ * @returns {Promise<string>} - The download URL
+ */
+async function getMediaUrl(mediaId) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+
+  const response = await fetch(`${WHATSAPP_API_BASE}/${mediaId}`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get media URL: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.url;
+}
+
+/**
+ * Download media content from WhatsApp
+ * @param {string} mediaId - The media ID from the incoming message
+ * @returns {Promise<Buffer>} - The media content as a buffer
+ */
+async function downloadMedia(mediaId) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+
+  // First, get the download URL
+  const mediaUrl = await getMediaUrl(mediaId);
+
+  // Then download the actual content
+  const response = await fetch(mediaUrl, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to download media: ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 module.exports = {
   sendTextMessage,
+  downloadMedia,
 };
