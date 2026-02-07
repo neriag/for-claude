@@ -1,4 +1,7 @@
 const OpenAI = require('openai');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -14,6 +17,7 @@ async function transcribeAudio(audioBuffer, mimeType) {
   // Determine file extension from mime type
   const extensions = {
     'audio/ogg': 'ogg',
+    'audio/ogg; codecs=opus': 'ogg',
     'audio/mpeg': 'mp3',
     'audio/mp4': 'm4a',
     'audio/wav': 'wav',
@@ -23,18 +27,29 @@ async function transcribeAudio(audioBuffer, mimeType) {
 
   const ext = extensions[mimeType] || 'ogg';
 
-  // Create a File object from the buffer for the OpenAI API
-  const file = new File([audioBuffer], `audio.${ext}`, { type: mimeType });
+  // Write buffer to a temp file (Node.js compatible approach)
+  const tempFile = path.join(os.tmpdir(), `whatsapp-audio-${Date.now()}.${ext}`);
 
   console.log(`Transcribing audio (${mimeType}, ${audioBuffer.length} bytes)...`);
 
-  const transcription = await openai.audio.transcriptions.create({
-    file: file,
-    model: 'whisper-1',
-  });
+  try {
+    // Write the audio buffer to a temp file
+    fs.writeFileSync(tempFile, audioBuffer);
 
-  console.log('Transcription complete');
-  return transcription.text;
+    // Create a read stream for the OpenAI API
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(tempFile),
+      model: 'whisper-1',
+    });
+
+    console.log('Transcription complete');
+    return transcription.text;
+  } finally {
+    // Clean up temp file
+    if (fs.existsSync(tempFile)) {
+      fs.unlinkSync(tempFile);
+    }
+  }
 }
 
 module.exports = {
